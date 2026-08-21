@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Cross, Heart, Mail, MapPin, Phone } from 'lucide-react';
+import { Cross, Heart, Mail } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nProvider';
 
 const footerLinks = {
   product: [
     { label: 'Features', href: '/#features' },
     { label: 'Pricing', href: '/#pricing' },
-    { label: 'Testimonials', href: '/#testimonials' },
+    { label: 'Our approach', href: '/#commitments' },
     { label: 'FAQ', href: '/help' },
   ],
   company: [
@@ -58,19 +58,9 @@ export default function Footer() {
             </p>
             
             {/* Contact Info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-4 h-4 text-[hsl(210,70%,60%)]" />
-                <span>hello@faithhaven.ai</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="w-4 h-4 text-[hsl(210,70%,60%)]" />
-                <span>+27 (0) 21 123 4567</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="w-4 h-4 text-[hsl(210,70%,60%)]" />
-                <span>Cape Town, South Africa</span>
-              </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Mail className="w-4 h-4 text-[hsl(210,70%,60%)]" />
+              <Link to="/contact" className="hover:text-[hsl(210,70%,60%)]">Use the contact form for an inquiry</Link>
             </div>
           </div>
 
@@ -161,12 +151,9 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-sm text-slate-500 text-center md:text-left">
-              © 2026 FaithHaven AI – Made with{' '}
+              © 2026 FaithHaven AI – built with{' '}
               <Heart className="w-4 h-4 inline text-[hsl(340,60%,65%)] fill-[hsl(340,60%,65%)]" />{' '}
-              by Amarktai Network | Part of the{' '}
-              <a href="#" className="text-[hsl(210,70%,60%)] hover:underline">
-                Amarktai Network
-              </a>
+              for careful spiritual practice.
             </div>
             <div className="flex items-center gap-6">
               <span className="text-xs text-slate-600">

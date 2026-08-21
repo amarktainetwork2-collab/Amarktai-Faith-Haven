@@ -85,9 +85,9 @@ export default function AboutPage() {
                 deepen their faith, strengthen their prayer life, and grow in their knowledge of Scripture.
               </p>
               <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                We believe that everyone deserves access to quality spiritual resources, regardless 
-                of their location, background, or financial situation. That's why we offer a free 
-                tier and work to keep our services affordable.
+                We believe that everyone deserves access to thoughtful spiritual resources, regardless
+                of their location or background. Subscription availability, pricing, and feature access are
+                published only after the live payment catalog has been configured and verified.
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[hsl(210,70%,60%)] to-[hsl(260,50%,65%)] flex items-center justify-center">
@@ -99,23 +99,11 @@ export default function AboutPage() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-[hsl(48,90%,92%)] rounded-2xl p-8 text-center">
-                <p className="text-4xl font-bold text-[hsl(210,70%,50%)] mb-2">10K+</p>
-                <p className="text-slate-600">Active Users</p>
-              </div>
-              <div className="bg-[hsl(210,80%,95%)] rounded-2xl p-8 text-center">
-                <p className="text-4xl font-bold text-[hsl(48,80%,45%)] mb-2">25+</p>
-                <p className="text-slate-600">Countries</p>
-              </div>
-              <div className="bg-[hsl(260,50%,95%)] rounded-2xl p-8 text-center">
-                <p className="text-4xl font-bold text-[hsl(260,50%,55%)] mb-2">12</p>
-                <p className="text-slate-600">Denominations</p>
-              </div>
-              <div className="bg-[hsl(150,30%,95%)] rounded-2xl p-8 text-center">
-                <p className="text-4xl font-bold text-[hsl(150,30%,45%)] mb-2">4</p>
-                <p className="text-slate-600">Languages</p>
-              </div>
+              <div className="grid grid-cols-2 gap-6">
+              <div className="bg-[hsl(48,90%,92%)] rounded-2xl p-8 text-center"><p className="text-2xl font-bold text-[hsl(210,70%,50%)] mb-2">PostgreSQL</p><p className="text-slate-600">Persistent data model</p></div>
+              <div className="bg-[hsl(210,80%,95%)] rounded-2xl p-8 text-center"><p className="text-2xl font-bold text-[hsl(48,80%,45%)] mb-2">GenX</p><p className="text-slate-600">Approved AI gateway</p></div>
+              <div className="bg-[hsl(260,50%,95%)] rounded-2xl p-8 text-center"><p className="text-2xl font-bold text-[hsl(260,50%,55%)] mb-2">PWA</p><p className="text-slate-600">Installable web experience</p></div>
+              <div className="bg-[hsl(150,30%,95%)] rounded-2xl p-8 text-center"><p className="text-2xl font-bold text-[hsl(150,30%,45%)] mb-2">4</p><p className="text-slate-600">Supported UI languages</p></div>
             </div>
           </div>
         </div>

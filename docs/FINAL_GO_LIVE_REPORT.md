@@ -1,51 +1,59 @@
-# Final Go-Live Report
+# FaithHaven Final Engineering and Go-Live Report
 
-## Current verdict
+## Final production gate
 
-**NOT READY FOR PRODUCTION**
+| Gate | Status | Evidence and limitation |
+|---|---|---|
+| **A. Code complete** | **PASS** | The final remediation branch implements the production data, security, payment, AI, privacy, PWA, and deployment controls documented below. |
+| **B. Staging verified** | **FAIL** | No Webdock or other external staging host, domain, or provider configuration was supplied. Local production-style API and PostgreSQL checks passed, but they are not a staging deployment. |
+| **C. External activation complete** | **FAIL** | GenX, SMTP, PayFast sandbox/live, DNS/TLS, Webdock, encrypted backup, monitoring, and licensed-media activation credentials remain intentionally external. |
+| **D. Production ready** | **FAIL** | Public production traffic must not be accepted until gates B and C are completed and recorded. |
 
-The repository has been refactored for a production deployment, but it must not accept public traffic until the external activation and live-environment checks below are completed. This verdict is intentionally conservative because no valid VPS access, GenX contract/credential, email provider, PayFast merchant configuration, domain DNS, or licensed media provider credential was supplied to this task.
+> **Verdict:** FaithHaven is **code-complete and deployable**, but not yet **production-ready**. The remaining work is controlled external installation and verification, not unimplemented substitute behavior.
 
-## Implemented changes
+## Completed and fixed
 
-| Area | Implemented status |
-|---|---|
-| Database | PostgreSQL relational schema, migration ledger, migration command, compose service |
-| AI | Browser → API → `AIService` → `GenXClient` only; timeout, retry, circuit breaker, quotas, audit/usage persistence |
-| Authentication | Secure cookies, refresh-token rotation, CSRF protection, verification/reset hashing, account/role checks |
-| Core content | Persistent prayer journal, prayer wall, calendar, devotionals, saved generated documents |
-| AI UI | Chat, sermon, and liturgy use the server-side AI service; no simulated content fallback |
-| Media | Real HTML media players, licensed media model, safe unavailable state without licensed streams |
-| Payments | Server checkout creation and signed ITN handling with amount/currency/merchant/idempotency checks |
-| PWA | Manifest, 192/512 maskable icons, cache versioning, offline fallback, API-cache exclusion |
-| Deployment | Caddy TLS proxy, isolated compose network, health checks, migration-first API start, manual rollback-aware workflow |
+The application now uses PostgreSQL migrations and relational entities rather than embedded client data. Authentication uses cookie sessions, CSRF protection, refresh-token rotation, replay containment, verification/reset token hashing, session revocation, role checks, account export, and account deletion. The final pass added resend-verification handling, data export/deletion UI, a truthful privacy policy, and an explicit rejected-origin CORS response.
+
+All AI requests remain on the sole approved path: **browser → FaithHaven API → AIService → GenXClient → GenX gateway**. Repository-wide scans found no prohibited provider references or credentials. The final pass also made AI quota reservation transaction-safe by locking the user row and counting pending requests, then proved that two simultaneous requests cannot consume the last monthly allowance twice.
+
+PayFast checkout now persists the plan code, and ITN handling has safe signature-length validation, merchant/amount/currency checks, transaction-scoped row locking, duplicate-notification protection, plan-appropriate subscription activation, and audit events. A real local callback test exposed and corrected a PostgreSQL SQL parameter-type defect before final validation.
+
+Prayer-wall requests are PostgreSQL-backed with anonymous-author identity suppression, cursor metadata, persistent reactions/reports, and owner edit/delete controls. Devotionals now support editorial listing, drafts, scheduled publication metadata, publishing, archiving, soft deletion, favorites, and role-protected API operations. Admin metrics map to actual database queries, and the subscribers list has a protected server endpoint rather than a client placeholder.
+
+The PWA has manifest/icon validation, cache versioning, offline fallback, stale-cache removal, and explicit API/payment cache bypass. The static web CSP now permits only the external typography actually loaded by the document while keeping scripts, frames, API connections, and workers restricted. Public pages no longer present fabricated testimonials, user counts, ratings, prayer counts, trial terms, prices, entitlement claims, or simulated AI responses.
 
 ## Tests actually run
 
-| Check | Result |
+| Command or check | Result |
 |---|---|
-| Frontend lint | PASS |
-| Frontend TypeScript production build | PASS |
-| Backend unit tests | PASS (2/2) |
-| Root production dependency audit | PASS (0 vulnerabilities) |
-| Backend production dependency audit | PASS (0 vulnerabilities) |
-| Docker compose validation | NOT RUN — Docker is unavailable in this sandbox |
-| Container build/start/health | NOT RUN — Docker is unavailable in this sandbox |
-| PostgreSQL migration against a running database | NOT RUN — no PostgreSQL service in this sandbox |
-| Provider integration tests | BLOCKED — credentials/approved endpoint not supplied |
-| Lighthouse, real-device PWA, and accessibility audit | NOT RUN — requires deployed HTTPS origin/browser test environment |
+| `npm run lint` | **PASS** |
+| `npm run build` | **PASS** |
+| `npm run validate:pwa` | **PASS** |
+| `npm audit --omit=dev --audit-level=high` | **PASS — 0 vulnerabilities** |
+| `cd backend && npm test` | **PASS — 2/2 unit tests** |
+| `cd backend && npm run test:integration` against real PostgreSQL | **PASS — 6/6 integration tests** |
+| Fresh PostgreSQL migration chain | **PASS — `001_initial_schema.sql`, `002_payment_plan_code.sql` applied to an empty database** |
+| Local API `/health` and `/ready` | **PASS** |
+| Local CORS behavior | **PASS — configured origin 200 with allow-origin header; untrusted origin 403 without allow-origin header** |
+| Local API security headers | **PASS — CSP, referrer policy, no-sniff, and frame protections present** |
+| Repository provider/marker scan | **PASS — no prohibited provider references or unresolved engineering markers** |
+| Docker compose/image runtime | **NOT RUN — Docker is unavailable in this sandbox; CI builds images** |
+| Installed PWA/offline/mobile acceptance | **NOT RUN — requires HTTPS device/staging environment** |
+| Browser accessibility engine | **NOT RUN to completion — both browser audit tools encountered sandbox browser-driver connectivity/version incompatibilities; this is not a passing WCAG result** |
 
-## External blockers
+## External activation checklist
 
-| Required | Why | Configuration location | Activation |
-|---|---|---|---|
-| Approved GenX gateway URL/key and request contract | AI features cannot operate safely without the organization-approved gateway | `GENX_API_URL`, `GENX_API_KEY`, `GENX_MODEL` | Configure production secret and execute a controlled chat test |
-| SMTP provider credentials and sender domain | Verification/reset email must be delivered for accounts to activate | `SMTP_URL`, `EMAIL_FROM` | Configure SMTP, DNS authentication, and deliver test messages |
-| PayFast live credentials and ITN registration | Public subscriptions must be verified server-to-server | `PAYFAST_*` | Set merchant values, whitelist/validate ITN source, run sandbox then live test |
-| Domain/DNS plus Webdock access | Caddy requires a resolvable domain and privileged VPS deployment | `DOMAIN`, `ACME_EMAIL`, GitHub `WEBDOCK_*` secrets | Point DNS, add deployment secrets, run workflow |
-| Licensed Bible/worship-media provider | Copyrighted audio/music cannot be fabricated or served without rights | media provider secret and `media_items` records | Establish license/provider, then activate approved streams |
-| Production backup and restore exercise | The backup procedure must be tested before real user data is accepted | external encrypted backup destination | Execute restore into an isolated database and record outcome |
+| External service | Configuration required | Exact post-activation test |
+|---|---|---|
+| GenX | `GENX_API_URL`, `GENX_API_KEY`, model/contract confirmation | Verified account sends a chat and draft request; confirm safe response, usage record, quota behavior, and no client secret exposure. |
+| SMTP | `SMTP_URL`, `EMAIL_FROM`, domain authentication | Register, resend verification, reset password, and confirm reset; inspect provider delivery and bounce logs. |
+| PayFast | Merchant ID/key/passphrase, sandbox/live endpoint, ITN URL, source controls | Run a PayFast sandbox checkout, valid ITN, duplicate ITN, invalid signature, cancellation, and reconciliation review. |
+| Domain/TLS/Webdock | DNS A/AAAA, `DOMAIN`, `ACME_EMAIL`, VPS SSH/deploy secrets | Validate Caddy certificate issuance, HTTPS headers, deep links, API readiness, and rollback from a verified release. |
+| PostgreSQL backup | Encrypted off-host destination and retention policy | Create backup, restore to isolated database, run migration/health/authentication smoke test, and record restore evidence. |
+| Licensed media | Provider credentials, license references, approved catalog records | Verify catalog visibility, playback, provider failure state, rights reference, and no unauthorised stream is exposed. |
+| PWA/mobile/a11y | HTTPS staging origin and supported devices | Install on Android/iOS/desktop; test login/logout, offline navigation, reconnect, service-worker update, keyboard traversal, screen-reader labels, contrast, and touch targets. |
 
-## Rollback
+## Deployment and rollback
 
-The deployment workflow stores the previous commit and restores it if compose validation, startup, or readiness fails. For manual rollback, check out a verified release SHA and run the compose stack with the existing protected production environment file. Do not roll back destructive database changes without a tested database recovery plan.
+Merge the validated release only after CI succeeds, create a protected `.env.production` on the Webdock VPS, and use the manual deployment workflow. It validates compose configuration, starts migrations before the API, waits for readiness, and restores the previously checked-out release if startup fails. Do not declare success without HTTPS health checks, live provider validation, a backup/restore exercise, and a documented rollback drill.

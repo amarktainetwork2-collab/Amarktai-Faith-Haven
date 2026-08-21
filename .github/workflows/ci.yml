@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm run validate:pwa
 
   backend:
     name: Backend tests and PostgreSQL migrations
@@ -56,6 +57,8 @@ jobs:
       - run: npm run migrate
         working-directory: backend
       - run: npm test
+        working-directory: backend
+      - run: npm run test:integration
         working-directory: backend
 
   security-and-container:

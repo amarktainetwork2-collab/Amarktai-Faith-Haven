@@ -35,7 +35,7 @@ If any gate fails, status is **NO GO**.
 - Backup/restore drill meets target RTO/RPO.
 
 ### 4) Feature completeness gate
-- Calendar, devotional, and prayer resources must be backend+DB sourced (not local mocks).
+- Calendar, devotional, and prayer resources must remain server-authorized and PostgreSQL-persisted rather than temporary client-only data.
 - Email verification and password reset emails must be provider-delivered and domain-correct.
 
 ### 5) Quality/test gate

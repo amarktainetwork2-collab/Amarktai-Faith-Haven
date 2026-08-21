@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { query } from '../../db/index.js';
+import { query, withTransaction } from '../../db/index.js';
 import { GenXClient } from './GenXClient.js';
 
 const FEATURE_PROMPTS = {
@@ -29,23 +29,34 @@ export class AIService {
       throw error;
     }
 
-    const usage = await query(
-      `SELECT count(*)::int AS count FROM ai_requests
-       WHERE user_id = $1 AND status = 'succeeded' AND created_at >= date_trunc('month', now())`,
-      [user.id],
-    );
-    if (usage.rows[0].count >= user.ai_quota_monthly) {
-      const error = new Error('Your monthly AI allowance has been reached.');
-      error.status = 429;
-      error.code = 'AI_QUOTA_EXCEEDED';
-      throw error;
-    }
-
-    await query(
-      `INSERT INTO ai_requests(request_id, user_id, feature, model, status)
-       VALUES($1, $2, $3, $4, 'started')`,
-      [requestId, user.id, feature, process.env.GENX_MODEL || 'faithhaven-default'],
-    );
+    await withTransaction(async (client) => {
+      // Locking the user row serializes quota checks for this account. Pending requests
+      // are counted too, so simultaneous requests cannot both consume the final allowance.
+      const lockedUser = await client.query(`SELECT ai_quota_monthly FROM users WHERE id = $1 FOR UPDATE`, [user.id]);
+      const quota = lockedUser.rows[0]?.ai_quota_monthly;
+      if (quota === undefined) {
+        const error = new Error('Account not found.');
+        error.status = 401;
+        error.code = 'AUTH_REQUIRED';
+        throw error;
+      }
+      const usage = await client.query(
+        `SELECT count(*)::int AS count FROM ai_requests
+         WHERE user_id = $1 AND status IN ('started', 'succeeded') AND created_at >= date_trunc('month', now())`,
+        [user.id],
+      );
+      if (usage.rows[0].count >= quota) {
+        const error = new Error('Your monthly AI allowance has been reached.');
+        error.status = 429;
+        error.code = 'AI_QUOTA_EXCEEDED';
+        throw error;
+      }
+      await client.query(
+        `INSERT INTO ai_requests(request_id, user_id, feature, model, status)
+         VALUES($1, $2, $3, $4, 'started')`,
+        [requestId, user.id, feature, process.env.GENX_MODEL || 'faithhaven-default'],
+      );
+    });
 
     try {
       const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }];

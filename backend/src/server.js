@@ -45,14 +45,30 @@ app.use((req, res, next) => {
   next();
 });
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      frameAncestors: ["'none'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      workerSrc: ["'self'"],
+    },
+  },
   crossOriginResourcePolicy: { policy: 'same-site' },
   referrerPolicy: { policy: 'no-referrer' },
 }));
 app.use(cors({
   origin(origin, callback) {
     if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Origin is not allowed'));
+    const error = new Error('Origin is not allowed');
+    error.status = 403;
+    error.code = 'CORS_ORIGIN_FORBIDDEN';
+    return callback(error);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -262,9 +278,15 @@ app.post('/api/auth/refresh', requireCsrf, async (req, res, next) => {
        WHERE rt.token_hash = $1`, [tokenHash(refresh)],
     );
     const record = rows[0];
-    if (!record || record.revoked_at || new Date(record.expires_at) <= now() || record.account_status !== 'active') {
+    if (!record || new Date(record.expires_at) <= now() || record.account_status !== 'active') {
       clearSessionCookies(res);
       return res.status(401).json({ error: { code: 'SESSION_EXPIRED', message: 'Please sign in again.' } });
+    }
+    if (record.revoked_at) {
+      await query(`UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL`, [record.family_id]);
+      await audit({ requestId: req.requestId, actorId: record.user_id, action: 'auth.refresh_token_reuse_detected', ip: req.ip });
+      clearSessionCookies(res);
+      return res.status(401).json({ error: { code: 'SESSION_REVOKED', message: 'Please sign in again.' } });
     }
     await withTransaction(async (client) => {
       await client.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1`, [record.id]);
@@ -305,6 +327,24 @@ app.post('/api/auth/verify-email', authLimiter, requireCsrf, async (req, res, ne
     await audit({ requestId: req.requestId, actorId: rows[0].user_id, action: 'auth.email_verified', entityType: 'user', entityId: rows[0].user_id, ip: req.ip });
     try { await sendWelcomeEmail({ to: updated.rows[0].email, name: updated.rows[0].name }); } catch { /* delivery event is intentionally not exposed */ }
     res.json({ user: publicUser(updated.rows[0]) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/resend-verification', authLimiter, requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    if (req.user.email_verified_at) return res.json({ ok: true, message: 'This email address is already verified.' });
+    const token = randomToken();
+    await withTransaction(async (client) => {
+      await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [req.user.id]);
+      await client.query(`INSERT INTO email_verification_tokens(user_id, token_hash, expires_at) VALUES($1, $2, now() + interval '24 hours')`, [req.user.id, tokenHash(token)]);
+    });
+    try {
+      await sendVerificationEmail({ to: req.user.email, name: req.user.name, token });
+      await audit({ requestId: req.requestId, actorId: req.user.id, action: 'auth.verification_resent', ip: req.ip });
+    } catch {
+      await audit({ requestId: req.requestId, actorId: req.user.id, action: 'email.verification_delivery_failed', ip: req.ip });
+    }
+    res.json({ ok: true, message: 'If delivery is configured, a verification email will be sent shortly.' });
   } catch (error) { next(error); }
 });
 
@@ -366,6 +406,43 @@ app.put('/api/user/profile', requireAuth, requireCsrf, async (req, res, next) =>
     );
     await audit({ requestId: req.requestId, actorId: req.user.id, action: 'user.profile_updated', entityType: 'user', entityId: req.user.id, ip: req.ip });
     res.json({ user: publicUser(rows[0]) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/user/export', requireAuth, async (req, res, next) => {
+  try {
+    const [journal, calendar, conversations, documents, subscriptions] = await Promise.all([
+      query(`SELECT title, content, tags, is_answered, answered_at, created_at, updated_at FROM prayer_entries WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [req.user.id]),
+      query(`SELECT title, description, starts_at, ends_at, timezone, category, recurrence_rule, reminder_minutes, created_at, updated_at FROM calendar_events WHERE owner_id = $1 AND deleted_at IS NULL ORDER BY starts_at`, [req.user.id]),
+      query(`SELECT id, title, created_at, updated_at FROM ai_conversations WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [req.user.id]),
+      query(`SELECT type, title, content, metadata, created_at, updated_at FROM generated_documents WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [req.user.id]),
+      query(`SELECT provider, plan_code, status, started_at, ends_at, cancelled_at, created_at FROM subscriptions WHERE user_id = $1 ORDER BY created_at`, [req.user.id]),
+    ]);
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'privacy.data_export_requested', ip: req.ip });
+    res.json({ exportedAt: now().toISOString(), profile: publicUser(req.user), prayerJournal: journal.rows, calendar: calendar.rows, conversations: conversations.rows, savedDocuments: documents.rows, subscriptions: subscriptions.rows });
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/user/account', requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    const password = z.string().min(1).max(256).parse(req.body?.password);
+    const { rows } = await query(`SELECT email, password_hash FROM users WHERE id = $1 AND deleted_at IS NULL`, [req.user.id]);
+    const current = rows[0];
+    if (!current || !verifyPassword(password, current.password_hash)) return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password confirmation is required.' } });
+    await withTransaction(async (client) => {
+      const anonymizedEmail = `deleted+${req.user.id}@invalid.local`;
+      await client.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE prayer_entries SET deleted_at = now() WHERE user_id = $1 AND deleted_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE prayer_wall_posts SET deleted_at = now() WHERE user_id = $1 AND deleted_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE ai_conversations SET deleted_at = now() WHERE user_id = $1 AND deleted_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE generated_documents SET deleted_at = now() WHERE user_id = $1 AND deleted_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE calendar_events SET deleted_at = now() WHERE owner_id = $1 AND deleted_at IS NULL`, [req.user.id]);
+      await client.query(`UPDATE newsletter_subscriptions SET unsubscribed_at = now() WHERE email = $1`, [current.email]);
+      await client.query(`UPDATE users SET email = $2, name = 'Deleted user', denomination = NULL, account_status = 'deleted', deleted_at = now(), email_verified_at = NULL, password_hash = $3 WHERE id = $1`, [req.user.id, anonymizedEmail, passwordHash(randomToken())]);
+    });
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'privacy.account_deleted', ip: req.ip });
+    clearSessionCookies(res);
+    res.status(204).end();
   } catch (error) { next(error); }
 });
 
@@ -453,15 +530,19 @@ app.delete('/api/prayer-journal/:id', requireAuth, requireCsrf, async (req, res,
 app.get('/api/prayer-wall', requireAuth, async (req, res, next) => {
   try {
     const limit = Math.min(parsePositiveInt(req.query.limit, 20), 50);
+    const cursor = typeof req.query.cursor === 'string' && !Number.isNaN(Date.parse(req.query.cursor)) ? new Date(req.query.cursor).toISOString() : null;
     const { rows } = await query(
-      `SELECT p.id, p.content, p.is_anonymous, p.created_at, u.name AS author_name,
+      `SELECT p.id, p.content, p.is_anonymous, p.created_at,
+       CASE WHEN p.is_anonymous THEN NULL ELSE u.name END AS author_name,
+       (p.user_id = $1) AS is_owner,
        (SELECT count(*)::int FROM prayer_wall_reactions r WHERE r.post_id = p.id) AS prayer_count,
        EXISTS(SELECT 1 FROM prayer_wall_reactions r WHERE r.post_id = p.id AND r.user_id = $1) AS prayed
        FROM prayer_wall_posts p JOIN users u ON u.id = p.user_id
        WHERE p.deleted_at IS NULL AND p.visibility = 'public' AND p.moderation_status = 'published'
-       ORDER BY p.created_at DESC LIMIT $2`, [req.user.id, limit],
+       AND ($2::timestamptz IS NULL OR p.created_at < $2)
+       ORDER BY p.created_at DESC LIMIT $3`, [req.user.id, cursor, limit],
     );
-    res.json({ prayers: rows });
+    res.json({ prayers: rows, nextCursor: rows.length === limit ? rows.at(-1).created_at : null });
   } catch (error) { next(error); }
 });
 app.post('/api/prayer-wall', requireAuth, requireVerified, requireCsrf, async (req, res, next) => {
@@ -470,6 +551,23 @@ app.post('/api/prayer-wall', requireAuth, requireVerified, requireCsrf, async (r
     const { rows } = await query(`INSERT INTO prayer_wall_posts(user_id, content, is_anonymous) VALUES($1, $2, $3) RETURNING *`, [req.user.id, data.content, data.isAnonymous]);
     await audit({ requestId: req.requestId, actorId: req.user.id, action: 'prayer_wall.post_created', entityType: 'prayer_wall_post', entityId: rows[0].id, ip: req.ip });
     res.status(201).json({ prayer: rows[0] });
+  } catch (error) { next(error); }
+});
+app.put('/api/prayer-wall/:id', requireAuth, requireVerified, requireCsrf, async (req, res, next) => {
+  try {
+    const data = wallSchema.parse(req.body);
+    const { rows } = await query(`UPDATE prayer_wall_posts SET content = $3, is_anonymous = $4, updated_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING id, content, is_anonymous, created_at, updated_at`, [req.params.id, req.user.id, data.content, data.isAnonymous]);
+    if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Prayer request not found.' } });
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'prayer_wall.post_updated', entityType: 'prayer_wall_post', entityId: req.params.id, ip: req.ip });
+    res.json({ prayer: rows[0] });
+  } catch (error) { next(error); }
+});
+app.delete('/api/prayer-wall/:id', requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    const result = await query(`UPDATE prayer_wall_posts SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, [req.params.id, req.user.id]);
+    if (!result.rowCount) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Prayer request not found.' } });
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'prayer_wall.post_deleted', entityType: 'prayer_wall_post', entityId: req.params.id, ip: req.ip });
+    res.status(204).end();
   } catch (error) { next(error); }
 });
 app.post('/api/prayer-wall/:id/pray', requireAuth, requireCsrf, async (req, res, next) => {
@@ -540,6 +638,45 @@ app.post('/api/devotionals', requireAuth, requireVerified, requireCsrf, requireR
     );
     res.status(201).json({ devotional: rows[0] });
   } catch (error) { next(error); }
+});
+
+app.get('/api/admin/devotionals', requireAuth, requireRole('admin', 'moderator'), async (req, res, next) => {
+  try {
+    const status = req.query.status ? z.enum(['draft', 'scheduled', 'published', 'archived']).parse(req.query.status) : null;
+    const { rows } = await query(`SELECT d.*, u.name AS author_name FROM devotionals d LEFT JOIN users u ON u.id = d.author_id WHERE d.deleted_at IS NULL ${status ? 'AND d.status = $1' : ''} ORDER BY d.updated_at DESC LIMIT 250`, status ? [status] : []);
+    res.json({ devotionals: rows });
+  } catch (error) { next(error); }
+});
+app.put('/api/devotionals/:id', requireAuth, requireVerified, requireCsrf, requireRole('admin', 'moderator'), async (req, res, next) => {
+  try {
+    const data = z.object({ title: z.string().trim().min(1).max(180), scriptureReference: z.string().trim().min(1).max(180), scriptureText: z.string().trim().max(12_000).nullable().optional(), reflection: z.string().trim().min(1).max(30_000), prayer: z.string().trim().min(1).max(12_000), audience: z.string().trim().max(48).nullable().optional(), status: z.enum(['draft', 'scheduled', 'published', 'archived']), publishedAt: z.string().datetime().nullable().optional() }).parse(req.body);
+    if (data.status === 'scheduled' && !data.publishedAt) return res.status(400).json({ error: { code: 'SCHEDULE_REQUIRED', message: 'Scheduled devotionals require a publication time.' } });
+    const publishedAt = data.status === 'published' ? (data.publishedAt || now()) : data.publishedAt || null;
+    const { rows } = await query(`UPDATE devotionals SET title=$2, scripture_reference=$3, scripture_text=$4, reflection=$5, prayer=$6, audience=$7, status=$8, published_at=$9, updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING *`, [req.params.id, data.title, data.scriptureReference, data.scriptureText || null, data.reflection, data.prayer, data.audience || null, data.status, publishedAt]);
+    if (!rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Devotional not found.' } });
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'devotional.updated', entityType: 'devotional', entityId: req.params.id, ip: req.ip, metadata: { status: data.status } });
+    res.json({ devotional: rows[0] });
+  } catch (error) { next(error); }
+});
+app.delete('/api/devotionals/:id', requireAuth, requireCsrf, requireRole('admin', 'moderator'), async (req, res, next) => {
+  try {
+    const result = await query(`UPDATE devotionals SET deleted_at = now() WHERE id=$1 AND deleted_at IS NULL`, [req.params.id]);
+    if (!result.rowCount) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Devotional not found.' } });
+    await audit({ requestId: req.requestId, actorId: req.user.id, action: 'devotional.deleted', entityType: 'devotional', entityId: req.params.id, ip: req.ip });
+    res.status(204).end();
+  } catch (error) { next(error); }
+});
+app.post('/api/devotionals/:id/favorite', requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    const exists = await query(`SELECT id FROM devotionals WHERE id=$1 AND status='published' AND deleted_at IS NULL`, [req.params.id]);
+    if (!exists.rows[0]) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Devotional not found.' } });
+    await query(`INSERT INTO devotional_favorites(devotional_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [req.params.id, req.user.id]);
+    res.status(204).end();
+  } catch (error) { next(error); }
+});
+app.delete('/api/devotionals/:id/favorite', requireAuth, requireCsrf, async (req, res, next) => {
+  try { await query(`DELETE FROM devotional_favorites WHERE devotional_id=$1 AND user_id=$2`, [req.params.id, req.user.id]); res.status(204).end(); }
+  catch (error) { next(error); }
 });
 
 app.get('/api/documents', requireAuth, async (req, res, next) => {
@@ -617,7 +754,7 @@ app.post('/api/payments/checkout', requireAuth, requireVerified, requireCsrf, as
       cancel_url: config.payfastCancelUrl, notify_url: config.payfastNotifyUrl, m_payment_id: paymentId, amount,
       item_name: `FaithHaven ${data.planCode} subscription`, email_address: req.user.email,
     };
-    await query(`INSERT INTO payments(user_id, provider_payment_id, amount_cents, currency, status, idempotency_key) VALUES($1,$2,$3,'ZAR','pending',$4)`, [req.user.id, paymentId, data.amountCents, idempotencyKey]);
+    await query(`INSERT INTO payments(user_id, provider_payment_id, plan_code, amount_cents, currency, status, idempotency_key) VALUES($1,$2,$3,$4,'ZAR','pending',$5)`, [req.user.id, paymentId, data.planCode, data.amountCents, idempotencyKey]);
     res.json({ endpoint: config.payfastEndpoint, payload, signature: payfastSign(payload) });
   } catch (error) { next(error); }
 });
@@ -626,23 +763,30 @@ app.post('/api/payments/payfast/itn', express.urlencoded({ extended: false, limi
     const payload = req.body;
     const sourceIp = String(req.get('x-forwarded-for') || req.ip || '').split(',')[0].trim();
     if (config.payfastIpWhitelist.length && !config.payfastIpWhitelist.includes(sourceIp)) return res.status(403).send('Forbidden');
-    if (!payload.signature || !crypto.timingSafeEqual(Buffer.from(String(payload.signature).toLowerCase()), Buffer.from(payfastSign(payload).toLowerCase()))) return res.status(400).send('Invalid signature');
-    if (payload.merchant_id !== config.payfastMerchantId) return res.status(400).send('Invalid merchant');
-    const payment = await query(`SELECT * FROM payments WHERE provider_payment_id=$1 FOR UPDATE`, [payload.m_payment_id]);
-    const row = payment.rows[0];
-    if (!row) return res.status(404).send('Unknown payment');
-    const amountCents = Math.round(Number(payload.amount_gross) * 100);
-    if (!Number.isSafeInteger(amountCents) || amountCents !== row.amount_cents || payload.currency !== row.currency) return res.status(400).send('Invalid amount');
-    const status = String(payload.payment_status || '').toUpperCase() === 'COMPLETE' ? 'complete' : 'failed';
-    if (row.status === 'complete') return res.status(200).send('OK');
-    await withTransaction(async (client) => {
-      await client.query(`UPDATE payments SET status=$2, paid_at=CASE WHEN $2='complete' THEN now() ELSE NULL END, provider_payload=$3 WHERE id=$1`, [row.id, status, JSON.stringify(payload)]);
+    const receivedSignature = String(payload.signature || '').toLowerCase();
+    const expectedSignature = payfastSign(payload).toLowerCase();
+    if (!receivedSignature || receivedSignature.length !== expectedSignature.length || !crypto.timingSafeEqual(Buffer.from(receivedSignature), Buffer.from(expectedSignature))) return res.status(400).send('Invalid signature');
+    if (!config.payfastMerchantId || payload.merchant_id !== config.payfastMerchantId) return res.status(400).send('Invalid merchant');
+
+    const outcome = await withTransaction(async (client) => {
+      const payment = await client.query(`SELECT * FROM payments WHERE provider_payment_id=$1 FOR UPDATE`, [payload.m_payment_id]);
+      const row = payment.rows[0];
+      if (!row) { const error = new Error('Unknown payment'); error.status = 404; throw error; }
+      const amountCents = Math.round(Number(payload.amount_gross) * 100);
+      if (!Number.isSafeInteger(amountCents) || amountCents !== row.amount_cents || payload.currency !== row.currency) { const error = new Error('Invalid amount'); error.status = 400; throw error; }
+      if (row.status === 'complete') return { duplicate: true, row, status: 'complete' };
+      const rawStatus = String(payload.payment_status || '').toUpperCase();
+      const status = rawStatus === 'COMPLETE' ? 'complete' : rawStatus === 'CANCELLED' ? 'cancelled' : 'failed';
+      await client.query(`UPDATE payments SET status=$2::varchar, paid_at=CASE WHEN $2::text='complete' THEN now() ELSE NULL END, provider_payload=$3, updated_at=now() WHERE id=$1`, [row.id, status, JSON.stringify(payload)]);
       if (status === 'complete') {
-        await client.query(`INSERT INTO subscriptions(user_id, plan_code, status, started_at) VALUES($1, 'individual', 'active', now())`, [row.user_id]);
-        await client.query(`UPDATE users SET subscription_plan='individual', ai_quota_monthly=200 WHERE id=$1`, [row.user_id]);
+        const subscription = await client.query(`INSERT INTO subscriptions(user_id, plan_code, status, started_at, metadata) VALUES($1, $2, 'active', now(), $3) RETURNING id`, [row.user_id, row.plan_code, JSON.stringify({ providerPaymentId: row.provider_payment_id })]);
+        await client.query(`UPDATE payments SET subscription_id=$2 WHERE id=$1`, [row.id, subscription.rows[0].id]);
+        const quota = row.plan_code === 'church' ? 1_000 : row.plan_code === 'family' ? 400 : 200;
+        await client.query(`UPDATE users SET subscription_plan=$2, ai_quota_monthly=$3 WHERE id=$1`, [row.user_id, row.plan_code === 'church' ? 'congregation' : row.plan_code, quota]);
       }
+      return { duplicate: false, row, status };
     });
-    await audit({ requestId: req.requestId, actorId: row.user_id, action: `payment.${status}`, entityType: 'payment', entityId: row.id, ip: req.ip });
+    if (!outcome.duplicate) await audit({ requestId: req.requestId, actorId: outcome.row.user_id, action: `payment.${outcome.status}`, entityType: 'payment', entityId: outcome.row.id, ip: req.ip });
     res.status(200).send('OK');
   } catch (error) { next(error); }
 });
@@ -653,6 +797,13 @@ app.get('/api/admin/stats', requireAuth, requireRole('admin'), async (req, res, 
     res.json({ stats: rows[0] });
   } catch (error) { next(error); }
 });
+app.get('/api/admin/subscribers', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { rows } = await query(`SELECT u.id, u.name, u.email, s.status, s.plan_code AS plan FROM subscriptions s JOIN users u ON u.id = s.user_id WHERE u.deleted_at IS NULL ORDER BY s.created_at DESC LIMIT 100`);
+    res.json({ subscribers: rows.map((row) => ({ id: row.id, name: row.name, email: row.email, status: row.status === 'active' ? 'active' : 'inactive', plan: row.plan })) });
+  } catch (error) { next(error); }
+});
+
 app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const { rows } = await query(`SELECT id, request_id, actor_id, action, entity_type, entity_id, metadata, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 250`);

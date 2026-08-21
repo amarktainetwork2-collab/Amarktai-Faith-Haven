@@ -255,9 +255,6 @@ interface AdminState {
   stats: {
     totalUsers: number;
     activeSubscribers: number;
-    monthlyRevenue: number;
-    totalRevenue: number;
-    owingAmount: number;
     chatMessages: number;
     prayers: number;
     devotionals: number;
@@ -274,25 +271,22 @@ export const useAdminStore = create<AdminState>()((set) => ({
       stats: {
         totalUsers: 0,
         activeSubscribers: 0,
-        monthlyRevenue: 0,
-        totalRevenue: 0,
-        owingAmount: 0,
         chatMessages: 0,
         prayers: 0,
         devotionals: 0,
       },
       subscribers: [],
       apiConfig: {
-        provider: 'payfast',
-        environment: 'sandbox',
+        provider: 'server',
+        environment: 'unavailable',
         callbackUrl: '',
       },
       isLoading: false,
       fetchStats: async () => {
         set({ isLoading: true });
         try {
-          const data = await apiRequest<{ stats: AdminState['stats'] }>('/api/admin/stats');
-          set({ stats: data.stats, isLoading: false });
+          const data = await apiRequest<{ stats: { total_users: number; active_subscribers: number; ai_requests: number; prayer_posts: number; published_devotionals: number } }>('/api/admin/stats');
+          set({ stats: { totalUsers: data.stats.total_users, activeSubscribers: data.stats.active_subscribers, chatMessages: data.stats.ai_requests, prayers: data.stats.prayer_posts, devotionals: data.stats.published_devotionals }, isLoading: false });
         } catch {
           set({ isLoading: false });
         }

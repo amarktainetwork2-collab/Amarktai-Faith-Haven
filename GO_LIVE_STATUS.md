@@ -1,62 +1,28 @@
-# FaithHaven AI — Production Go-Live Audit
+# FaithHaven — Go-Live Status
 
-_Last updated: 2026-04-07_
+_Last updated: 2026-08-21_
 
-## Audit result
+## Current status
 
-**Status: Production hardening underway, not yet fully production-ready for real users.**
+The repository is a **PostgreSQL-backed FaithHaven PWA** with a server-side, GenX-only AI gateway, cookie sessions, CSRF controls, PayFast server-side processing, licensed-media gating, and a Webdock deployment stack. It is **code-complete and locally database-validated**, but it is **not production-ready** until the external services and VPS deployment are configured and tested.
 
-The frontend shell, deployment containerization, PWA baseline, route splitting, and error handling are in place.
-Core hardening has improved (auth controls, PayFast ITN validation, audit logs), but durable data architecture, full test coverage, and operations readiness are still incomplete.
+## Verified implementation
 
-## Completed foundations
+| Area | Current implementation | Validation status |
+|---|---|---|
+| Database | PostgreSQL migrations and normalized persistence | Verified against fresh local PostgreSQL databases |
+| AI | Browser → API → AIService → GenXClient → approved GenX gateway | Source scan and gateway fail-closed test completed; live gateway requires organization credentials |
+| Auth | Secure cookies, refresh rotation/replay containment, CSRF, verification/reset, export/deletion | PostgreSQL integration tests completed |
+| PayFast | Signed checkout, signature/merchant/amount/currency checks, transaction lock, duplicate ITN protection | Deterministic local callback integration test completed; sandbox/live callback still required |
+| Prayer wall | Persistent create/read/edit/delete, anonymous identity protection, reports, reactions, pagination metadata | PostgreSQL integration tests completed |
+| Devotionals | Published reads, admin/moderator drafting, scheduling, publishing, archiving, deletion, favorites | Role-protected API integration tests completed |
+| PWA | Manifest, icons, cache versioning, offline fallback, API/payment cache exclusion | Static validation completed; installed-device validation remains external |
+| CI | Lint, build, PWA validation, unit tests, PostgreSQL migration, integration tests, dependency audit, Docker builds | Enforced in the repository workflow |
 
-- Docker + Nginx deploy stack (`Dockerfile`, `docker-compose.yml`, `nginx.conf`)
-- Frontend PWA baseline (`manifest.webmanifest`, `sw.js`, SW registration)
-- Error boundary + lazy routes + suspense loading
-- Basic i18n shell translations and language binding
-- Dark mode token support and runtime theme toggle
-- CI workflow for lint/build checks
-- Deploy workflow template for Webdock over SSH
+## External go-live gates
 
-## Critical blockers (must be done before launch)
-
-1. Upgrade embedded SQLite persistence to managed production DB (e.g. PostgreSQL) with migrations.
-2. Add provider-backed email delivery (verification + password reset) and secrets-managed token handling.
-3. Enforce production network controls around PayFast callback source checks (edge + app).
-4. Complete automated test suite (unit + integration + E2E) with CI pass gates.
-5. Finalize production secrets strategy (backend env/secret store only; never client).
-6. Complete SRE runbooks (backup/restore, alerting, rollback rehearsal).
-
-## High-priority incomplete features
-
-- AI chat endpoint now supports OpenAI call path with Bible fallback.
-- BibleAudio and WorshipMusic are UI-only shells.
-- Admin metrics/subscribers are stub data.
-- Calendar/devotional/prayer resources are mostly static placeholders.
-- Contact/newsletter are frontend UX flows, not guaranteed backend-delivered records.
-- Password reset backend flow exists; frontend reset journey still needs full UX integration and email delivery.
-
-## Improvements needed for scale and reliability
-
-- Full-page i18n coverage (not only shared shell).
-- Formal accessibility audit (keyboard, contrast, aria checks).
-- Structured observability (logs/metrics/traces) and alerting.
-- Backup/restore runbooks for DB and environment.
-- Security scanning and dependency update policy.
-- Rate limiting and abuse controls on backend endpoints.
-
-## Webdock production deployment checklist
-
-- [ ] VPS hardening (firewall, SSH keys, fail2ban, updates)
-- [ ] Domain + TLS configured and auto-renewing
-- [ ] `.env.production` set with production values
-- [ ] Backend API and database services deployed
-- [ ] CI/CD deploy secrets set (`WEBDOCK_HOST`, `WEBDOCK_USER`, `WEBDOCK_SSH_KEY`)
-- [ ] Monitoring + alerting + backup jobs active
-- [ ] Rollback procedure tested
+The following are deliberately not fabricated and must be added at VPS installation time: a production GenX endpoint/key, SMTP sender and credentials, PayFast merchant credentials plus ITN registration, production domain/DNS, Webdock host/secrets, encrypted backup destination, and licensed media catalog/provider credentials. After those values are configured, staging must verify DNS, TLS, Caddy, migration startup, authentication email delivery, GenX responses, PayFast sandbox ITNs, licensed media playback, installed PWA behavior, monitoring, backup/restore, and rollback.
 
 ## Release recommendation
 
-Deploy now only for **staging/demo**.
-Go live for real users only after all critical blockers are completed and verified in staging.
+**Do not accept public production traffic until the external gates above have been configured and verified.** The source repository is prepared for the controlled VPS installation process documented in `docs/DEPLOYMENT.md` and `docs/FINAL_GO_LIVE_REPORT.md`.

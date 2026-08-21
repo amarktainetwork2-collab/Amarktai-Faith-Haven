@@ -24,6 +24,7 @@ export interface User {
   language: Language;
   role: 'user' | 'admin';
   subscriptionPlan: SubscriptionPlan;
+  emailVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -122,8 +123,8 @@ export interface GeoIPData {
 }
 
 export interface APIConfig {
-  provider: "payfast" | "stripe";
-  environment: "sandbox" | "live";
+  provider: "payfast" | "stripe" | "server";
+  environment: "sandbox" | "live" | "unavailable";
   callbackUrl: string;
 }
 

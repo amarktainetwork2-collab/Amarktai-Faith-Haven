@@ -10,7 +10,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "migrate": "node src/db/migrate.js",
-    "test": "NODE_ENV=test node --test src/**/*.test.js",
+    "test": "NODE_ENV=test node --test src/server.test.js",
     "test:integration": "NODE_ENV=test node --test src/**/*.integration.test.js"
   },
   "dependencies": {
