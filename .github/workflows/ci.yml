@@ -45,6 +45,10 @@ jobs:
       DATABASE_URL: postgresql://faithhaven:test-password-only@127.0.0.1:5432/faithhaven_test
       JWT_SECRET: test-only-secret-with-more-than-thirty-two-characters
       CORS_ORIGIN: http://localhost:5173
+      PAYFAST_MERCHANT_ID: 10000100
+      PAYFAST_MERCHANT_KEY: test-key
+      PAYFAST_PASSPHRASE: test-passphrase
+      PAYFAST_NOTIFY_URL: http://localhost:4000/api/payments/payfast/itn
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
