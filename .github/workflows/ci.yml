@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, manus/**]
+    branches: [main, manus/**, codex/perform-go-live-audit-and-list-requirements]
   pull_request:
 
 permissions:
