@@ -28,7 +28,15 @@ jobs:
             test -f .env.production
             previous_ref=$(git rev-parse HEAD)
             git fetch --all --prune
-            git checkout --detach "origin/${{ inputs.ref }}"
+            if git rev-parse --verify --quiet "origin/${{ inputs.ref }}^{commit}" >/dev/null; then
+              target_ref="origin/${{ inputs.ref }}"
+            elif git rev-parse --verify --quiet "${{ inputs.ref }}^{commit}" >/dev/null; then
+              target_ref="${{ inputs.ref }}"
+            else
+              echo "Validated release ref not found: ${{ inputs.ref }}" >&2
+              exit 1
+            fi
+            git checkout --detach "$target_ref"
             if ! docker compose --env-file .env.production config --quiet; then
               git checkout --detach "$previous_ref"
               exit 1
