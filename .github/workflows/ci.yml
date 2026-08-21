@@ -2,18 +2,76 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, work ]
+    branches: [main, manus/**]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  lint-build:
+  frontend:
+    name: Frontend quality and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  backend:
+    name: Backend tests and PostgreSQL migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: faithhaven_test
+          POSTGRES_USER: faithhaven
+          POSTGRES_PASSWORD: test-password-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U faithhaven -d faithhaven_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://faithhaven:test-password-only@127.0.0.1:5432/faithhaven_test
+      JWT_SECRET: test-only-secret-with-more-than-thirty-two-characters
+      CORS_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm run migrate
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+
+  security-and-container:
+    name: Dependency audit and container build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm ci
+        working-directory: backend
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: backend
+      - run: docker build -t faithhaven-web:ci .
+      - run: docker build -t faithhaven-api:ci -f backend/Dockerfile .

@@ -1,6 +1,16 @@
 node_modules
+backend/node_modules
 dist
+coverage
+playwright-report
+test-results
 .git
 .gitignore
+.env
+.env.*
+!.env.example
+backend/data
+postgres-data
 npm-debug.log*
+*.log
 .DS_Store

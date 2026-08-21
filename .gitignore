@@ -1,0 +1,30 @@
+# Dependencies and package-manager artefacts
+node_modules/
+backend/node_modules/
+.pnpm-store/
+
+# Build artefacts and coverage
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Local runtime data and logs
+backend/data/*.db
+backend/data/*.sqlite
+*.log
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Operating-system and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Local deployment state
+certbot/
+postgres-data/

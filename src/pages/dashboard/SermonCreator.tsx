@@ -1,184 +1,36 @@
 import { useState } from 'react';
-import { Mic, Sparkles, Copy, Download, RefreshCw } from 'lucide-react';
+import { Copy, Download, Mic, RefreshCw, Save, Sparkles } from 'lucide-react';
+import { ApiError, apiRequest } from '@/lib/api';
 import { toast } from 'sonner';
-
-interface SermonDraft {
-  title: string;
-  scripture: string;
-  introduction: string;
-  mainPoints: string[];
-  conclusion: string;
-  illustrations: string[];
-}
 
 export default function SermonCreator() {
   const [topic, setTopic] = useState('');
   const [scripture, setScripture] = useState('');
+  const [audience, setAudience] = useState('General congregation');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [sermon, setSermon] = useState<SermonDraft | null>(null);
+  const [content, setContent] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const handleGenerate = async () => {
-    if (!topic || !scripture) {
-      toast.error('Please enter both topic and scripture');
-      return;
-    }
-    setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setSermon({
-      title: `The Power of ${topic}`,
-      scripture: scripture,
-      introduction: `Good morning, church. Today we're going to explore the profound truth found in ${scripture} about ${topic}. This passage has transformed countless lives throughout history, and I believe God has a word for us today.`,
-      mainPoints: [
-        `Understanding ${topic} in its biblical context`,
-        `How ${topic} applies to our daily lives`,
-        `Practical steps to grow in ${topic}`,
-      ],
-      conclusion: `As we conclude, remember that ${topic} is not just a concept—it's a calling. May we go forth today embodying the truth of ${scripture} in everything we do.`,
-      illustrations: [
-        `The story of someone who exemplified ${topic}`,
-        `A modern-day example of ${topic} in action`,
-      ],
-    });
-    setIsGenerating(false);
-    toast.success('Sermon outline generated!');
+    if (!topic.trim() || !scripture.trim()) { toast.error('Please enter both a topic and Scripture reference.'); return; }
+    setIsGenerating(true); setSaved(false);
+    try {
+      const prompt = `Create a sermon draft about ${topic}. Scripture reference: ${scripture}. Intended audience: ${audience}. Provide a title, introduction, three main points, practical application, and conclusion. Do not invent Bible quotations; use the supplied reference and clearly label generated interpretation as draft material.`;
+      const response = await apiRequest<{ content: string; disclaimer: string }>('/api/ai/generate/sermon', { method: 'POST', body: JSON.stringify({ prompt, metadata: { topic, scripture, audience } }) });
+      setContent(response.content);
+      toast.success('Sermon draft generated for your review.');
+    } catch (error) { toast.error(error instanceof ApiError ? error.message : 'Unable to generate the sermon draft.'); }
+    finally { setIsGenerating(false); }
   };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(JSON.stringify(sermon, null, 2));
-    toast.success('Sermon copied to clipboard');
+  const handleSave = async () => {
+    if (!content) return;
+    try {
+      await apiRequest('/api/documents', { method: 'POST', body: JSON.stringify({ type: 'sermon', title: topic, content, metadata: { scripture, audience } }) });
+      setSaved(true); toast.success('Sermon draft saved to your account.');
+    } catch (error) { toast.error(error instanceof ApiError ? error.message : 'Unable to save this draft.'); }
   };
-  const handleDownload = () => {
-    if (!sermon) return;
-    const blob = new Blob([JSON.stringify(sermon, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sermon-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const handleCopy = async () => { if (content) { await navigator.clipboard.writeText(content); toast.success('Draft copied to clipboard.'); } };
+  const handleDownload = () => { if (!content) return; const blob = new Blob([content], { type: 'text/markdown' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `faithhaven-sermon-${Date.now()}.md`; anchor.click(); URL.revokeObjectURL(url); };
 
-
-  return (
-    <div className="h-full flex flex-col">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Sermon Creator</h1>
-        <p className="text-slate-500">AI-assisted sermon preparation</p>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 flex-1">
-        {/* Input Section */}
-        <div className="bg-white rounded-2xl border border-[hsl(48,30%,88%)] p-6">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Sermon Details</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Sermon Topic</label>
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g., Faith, Love, Forgiveness"
-                className="w-full h-12 px-4 rounded-xl border border-[hsl(48,30%,88%)] focus:border-[hsl(210,70%,60%)] focus:ring-2 focus:ring-[hsl(210,70%,60%)]/20 outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Key Scripture</label>
-              <input
-                type="text"
-                value={scripture}
-                onChange={(e) => setScripture(e.target.value)}
-                placeholder="e.g., John 3:16"
-                className="w-full h-12 px-4 rounded-xl border border-[hsl(48,30%,88%)] focus:border-[hsl(210,70%,60%)] focus:ring-2 focus:ring-[hsl(210,70%,60%)]/20 outline-none transition-all"
-              />
-            </div>
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="w-full h-12 bg-[hsl(210,70%,60%)] text-white rounded-xl font-medium hover:bg-[hsl(210,60%,50%)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  Generate Sermon
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Output Section */}
-        <div className="bg-white rounded-2xl border border-[hsl(48,30%,88%)] p-6 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-800">Generated Sermon</h2>
-            {sermon && (
-              <div className="flex gap-2">
-                <button onClick={handleCopy} className="p-2 hover:bg-[hsl(48,60%,96%)] rounded-lg transition-colors">
-                  <Copy className="w-5 h-5 text-slate-500" />
-                </button>
-                <button onClick={handleDownload} className="p-2 hover:bg-[hsl(48,60%,96%)] rounded-lg transition-colors">
-                  <Download className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {sermon ? (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800">{sermon.title}</h3>
-                <p className="text-[hsl(210,70%,50%)]">{sermon.scripture}</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-800 mb-2">Introduction</h4>
-                <p className="text-slate-600 leading-relaxed">{sermon.introduction}</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-800 mb-2">Main Points</h4>
-                <ol className="space-y-2">
-                  {sermon.mainPoints.map((point: string, i: number) => (
-                    <li key={i} className="flex gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[hsl(210,70%,60%)] text-white text-sm flex items-center justify-center flex-shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="text-slate-600">{point}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-800 mb-2">Illustrations</h4>
-                <ul className="space-y-2">
-                  {sermon.illustrations.map((illus: string, i: number) => (
-                    <li key={i} className="flex gap-2 text-slate-600">
-                      <span className="text-[hsl(48,90%,55%)]">•</span>
-                      {illus}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-800 mb-2">Conclusion</h4>
-                <p className="text-slate-600 leading-relaxed">{sermon.conclusion}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Mic className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-              <p className="text-slate-500">Enter sermon details to generate an outline</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="h-full flex flex-col"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-800">Sermon Creator</h1><p className="text-slate-500">AI-assisted draft preparation. Generated material requires pastoral review.</p></div><div className="grid lg:grid-cols-2 gap-6 flex-1"><section className="bg-white rounded-2xl border border-[hsl(48,30%,88%)] p-6"><h2 className="text-lg font-bold text-slate-800 mb-4">Sermon details</h2><div className="space-y-4"><label className="block text-sm font-medium text-slate-700">Topic<input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Faith, love, forgiveness…" className="mt-2 w-full h-12 px-4 rounded-xl border" /></label><label className="block text-sm font-medium text-slate-700">Scripture reference<input value={scripture} onChange={(event) => setScripture(event.target.value)} placeholder="John 3:16" className="mt-2 w-full h-12 px-4 rounded-xl border" /></label><label className="block text-sm font-medium text-slate-700">Audience<input value={audience} onChange={(event) => setAudience(event.target.value)} className="mt-2 w-full h-12 px-4 rounded-xl border" /></label><button onClick={() => void handleGenerate()} disabled={isGenerating} className="w-full h-12 bg-[hsl(210,70%,60%)] text-white rounded-xl font-medium hover:bg-[hsl(210,60%,50%)] disabled:opacity-50 flex items-center justify-center gap-2">{isGenerating ? <><RefreshCw className="w-5 h-5 animate-spin" />Generating…</> : <><Sparkles className="w-5 h-5" />Generate sermon draft</>}</button></div></section><section className="bg-white rounded-2xl border border-[hsl(48,30%,88%)] p-6 overflow-y-auto"><div className="flex items-center justify-between mb-4"><h2 className="text-lg font-bold text-slate-800">Generated draft</h2>{content && <div className="flex gap-2"><button onClick={() => void handleSave()} aria-label="Save sermon" className="p-2 hover:bg-[hsl(48,60%,96%)] rounded-lg"><Save className="w-5 h-5 text-slate-500" /></button><button onClick={() => void handleCopy()} aria-label="Copy sermon" className="p-2 hover:bg-[hsl(48,60%,96%)] rounded-lg"><Copy className="w-5 h-5 text-slate-500" /></button><button onClick={handleDownload} aria-label="Download sermon" className="p-2 hover:bg-[hsl(48,60%,96%)] rounded-lg"><Download className="w-5 h-5 text-slate-500" /></button></div>}</div>{content ? <div><p className="whitespace-pre-wrap text-slate-600 leading-relaxed">{content}</p><p className="mt-6 text-xs text-slate-500">Generated draft material is not authoritative scripture. Review accuracy, context, and pastoral suitability before use.{saved ? ' Saved to your account.' : ''}</p></div> : <div className="text-center py-12"><Mic className="w-16 h-16 text-slate-200 mx-auto mb-4" /><p className="text-slate-500">Enter sermon details to request a draft through the FaithHaven AI service.</p></div>}</section></div></div>;
 }

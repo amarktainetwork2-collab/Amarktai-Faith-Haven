@@ -22,6 +22,8 @@ const GDPRPage = lazy(() => import('@/pages/landing/GDPRPage'));
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'));
 
 const DashboardLayout = lazy(() => import('@/pages/dashboard/DashboardLayout'));
 const AIChat = lazy(() => import('@/pages/dashboard/AIChat'));
@@ -41,13 +43,18 @@ const Settings = lazy(() => import('@/pages/dashboard/Settings'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  const { isAuthenticated, initialized } = useAuthStore();
+  if (!initialized) return <div className="min-h-screen grid place-items-center" role="status">Loading your secure session…</div>;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 function App() {
-  const { user } = useAuthStore();
+  const { user, initialize } = useAuthStore();
   const { theme } = useUIStore();
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
 
   useEffect(() => {
     document.documentElement.lang = user?.language || 'en';
@@ -81,6 +88,8 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
             <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<AIChat />} />
