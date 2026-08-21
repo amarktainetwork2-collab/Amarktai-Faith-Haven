@@ -6,7 +6,7 @@ on:
       ref:
         description: "Validated commit or branch to deploy"
         required: true
-        default: "main"
+        default: "codex/perform-go-live-audit-and-list-requirements"
 
 permissions:
   contents: read
