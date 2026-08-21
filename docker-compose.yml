@@ -1,22 +1,79 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: faithhaven-postgres
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
   faithhaven-api:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: faithhaven-api
-    ports:
-      - "${API_PORT:-4000}:4000"
     env_file:
       - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [internal]
 
   faithhaven-web:
     build: .
     container_name: faithhaven-web
-    ports:
-      - "${APP_PORT:-8080}:80"
-    environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
-    depends_on:
-      - faithhaven-api
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [internal]
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: faithhaven-caddy
+    restart: unless-stopped
+    depends_on:
+      faithhaven-api:
+        condition: service_healthy
+      faithhaven-web:
+        condition: service_started
+    env_file:
+      - .env.production
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

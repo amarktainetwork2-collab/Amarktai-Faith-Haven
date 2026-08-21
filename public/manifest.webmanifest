@@ -1,15 +1,29 @@
 {
-  "name": "FaithHaven AI",
+  "id": "/",
+  "name": "FaithHaven",
   "short_name": "FaithHaven",
+  "description": "A secure Christian community platform for prayer, devotionals, and guided reflection.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#fdf9ec",
-  "theme_color": "#3b82f6",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#FDF9EC",
+  "theme_color": "#0D3B66",
+  "categories": ["lifestyle", "education", "social"],
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "64x64",
-      "type": "image/svg+xml"
+      "src": "/icons/faithhaven-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/faithhaven-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

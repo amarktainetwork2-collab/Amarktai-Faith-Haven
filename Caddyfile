@@ -1,0 +1,21 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+  encode zstd gzip
+
+  @api path /api/* /health /ready
+  reverse_proxy @api faithhaven-api:4000
+
+  reverse_proxy faithhaven-web:8080
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "no-referrer"
+    Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+    -Server
+  }
+}

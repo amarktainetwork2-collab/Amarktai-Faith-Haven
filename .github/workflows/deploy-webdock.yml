@@ -2,24 +2,49 @@ name: Deploy Webdock
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
+    inputs:
+      ref:
+        description: "Validated commit or branch to deploy"
+        required: true
+        default: "codex/perform-go-live-audit-and-list-requirements"
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' }}
+    environment: production
     steps:
-      - name: Deploy over SSH
+      - name: Deploy over SSH with rollback protection
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.WEBDOCK_HOST }}
           username: ${{ secrets.WEBDOCK_USER }}
           key: ${{ secrets.WEBDOCK_SSH_KEY }}
           script: |
-            set -e
+            set -eu
             cd /srv/faithhaven-ai
-            git fetch --all
-            git reset --hard origin/main
-            docker compose --env-file .env.production up -d --build
-            docker image prune -f
+            test -f .env.production
+            previous_ref=$(git rev-parse HEAD)
+            git fetch --all --prune
+            git checkout --detach "origin/${{ inputs.ref }}"
+            if ! docker compose --env-file .env.production config --quiet; then
+              git checkout --detach "$previous_ref"
+              exit 1
+            fi
+            if ! docker compose --env-file .env.production up -d --build --remove-orphans; then
+              git checkout --detach "$previous_ref"
+              docker compose --env-file .env.production up -d --build --remove-orphans
+              exit 1
+            fi
+            for attempt in $(seq 1 30); do
+              if docker compose --env-file .env.production exec -T faithhaven-api node -e "fetch('http://127.0.0.1:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+                docker image prune -f
+                exit 0
+              fi
+              sleep 2
+            done
+            git checkout --detach "$previous_ref"
+            docker compose --env-file .env.production up -d --build --remove-orphans
+            exit 1

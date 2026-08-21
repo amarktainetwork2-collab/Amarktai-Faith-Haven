@@ -1,26 +1,35 @@
-# FaithHaven AI
+# FaithHaven
 
-FaithHaven AI is a React + TypeScript + Vite web app for faith-based community, devotionals, journaling, and guided content.
+FaithHaven is a React and TypeScript PWA with a PostgreSQL-backed Node API for authenticated prayer, devotionals, calendar events, licensed media, subscriptions, and AI-assisted draft content.
 
-## Production baseline included
+> **AI architecture:** the browser communicates only with the FaithHaven API. The API routes AI work through `AIService` and `GenXClient` to the configured GenX gateway. No client-side AI credentials or direct model-provider calls are used.
 
-This repository now includes:
-- Dockerized frontend build/runtime (`Dockerfile`)
-- Dockerized backend API (`backend/Dockerfile`)
-- Nginx SPA config with security headers (`nginx.conf`)
-- Webdock-friendly compose setup (`docker-compose.yml`)
-- Environment variable template (`.env.example`)
+## Architecture
 
-## Requirements
-
-- Node.js 20+
-- npm 10+
-- Docker + Docker Compose (for VPS deployment)
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Web client | React, Vite, TypeScript | Responsive PWA interface; secure cookie-based session use only |
+| API | Node.js, Express | Authentication, authorization, content, billing, AI gateway, audit logs |
+| Persistence | PostgreSQL 16 | Normalized relational storage with SQL migrations |
+| Media | Licensed provider records | Bible audio and worship music only when a valid licensed stream is configured |
+| Edge | Caddy | HTTPS certificates, reverse proxy, public exposure |
 
 ## Local development
 
+Install the two JavaScript workspaces, configure an environment file, start PostgreSQL, then apply migrations.
+
 ```bash
-npm install
+npm ci
+cd backend && npm ci
+cp ../.env.example ../.env
+# Set DATABASE_URL for a local PostgreSQL database.
+npm run migrate
+npm run dev
+```
+
+Run the frontend in a second terminal.
+
+```bash
 npm run dev
 ```
 
@@ -29,62 +38,39 @@ npm run dev
 ```bash
 npm run lint
 npm run build
+cd backend && npm test
 ```
 
-## Deploy to Webdock VPS (easy path)
+The CI workflow also runs migrations against PostgreSQL, audits production dependencies, and builds both containers.
 
-1. Copy project to your VPS.
-2. Create `.env.production` from `.env.example` and fill values.
-3. Run:
+## Production deployment to Webdock
+
+The production stack includes PostgreSQL, the API, the static web client, and Caddy. Only Caddy publishes ports 80 and 443.
 
 ```bash
-docker compose --env-file .env.production up -d --build
+sudo mkdir -p /srv/faithhaven-ai
+sudo chown "$USER":"$USER" /srv/faithhaven-ai
+cd /srv/faithhaven-ai
+git clone https://github.com/amarktainetwork2-collab/Amarktai-Faith-Haven.git .
+cp .env.example .env.production
+chmod 600 .env.production
+# Populate every production value in .env.production.
+docker compose --env-file .env.production config --quiet
+docker compose --env-file .env.production up -d --build --remove-orphans
+docker compose --env-file .env.production ps
+curl -fsS http://127.0.0.1/health
 ```
 
-4. Point your domain DNS to VPS IP.
-5. Put this app behind your TLS terminator (Webdock LB, Caddy, or host-level Nginx/Traefik).
+Before starting the stack, point the production domain’s A/AAAA record to the Webdock VPS and allow inbound TCP ports 80 and 443. Caddy obtains and renews TLS certificates automatically after DNS resolves correctly.
 
-## PayFast integration notes
+## Required production configuration
 
-This frontend includes settings placeholders for PayFast credentials, but production payments must be done server-side.
+The complete list is in `.env.example`. The required values include `DATABASE_URL`, a unique 32-byte-plus `JWT_SECRET`, a specific HTTPS `CORS_ORIGIN`, `APP_URL`, SMTP delivery settings, the approved GenX gateway URL and key, PayFast merchant details, database credentials, and domain/TLS configuration.
 
-Minimum backend requirements:
-- Signed payment request generation
-- ITN endpoint validation (signature + source/IP verification)
-- Idempotent transaction state updates
-- Subscription reconciliation and audit logging
+Do not commit `.env.production`, pass keys as frontend variables, include secrets in images, or add credentials to the service worker.
 
-## Scripts
+## Operational notes
 
-- `npm run dev` – local dev server
-- `npm run lint` – lint checks
-- `npm run build` – production build
-- `npm run preview` – preview production build
-- `npm run launch:check` – strict go-live gate check (pass/fail summary)
+Migrations run before the API starts. Back up PostgreSQL before upgrades and validate restoration in a non-production environment. The deployment workflow in `.github/workflows/deploy-webdock.yml` is manual, validates the compose configuration, verifies API readiness, and reverts the checked-out release if startup fails.
 
-
-## CI/CD
-
-- `.github/workflows/ci.yml` runs lint + build on push/PR.
-- `.github/workflows/deploy-webdock.yml` provides a Webdock SSH deploy template for `main`.
-
-Required GitHub secrets:
-- `WEBDOCK_HOST`
-- `WEBDOCK_USER`
-- `WEBDOCK_SSH_KEY`
-
-## Important production note
-
-This repo includes a real backend service with auth, AI chat, and PayFast flows backed by embedded SQLite persistence.
-Public launch still requires managed production DB migration, full test coverage, and full ops hardening.
-
-
-## Backend API
-
-A backend service now exists under `backend/` with:
-- JWT auth endpoints (`/api/auth/register`, `/api/auth/login`, `/api/auth/me`)
-- Auth hardening endpoints (`/api/auth/verify-email`, `/api/auth/request-password-reset`, `/api/auth/reset-password`, `/api/auth/logout-all`)
-- AI chat endpoint (`/api/ai/chat`) with OpenAI support + Bible fallback
-- PayFast endpoints (`/api/payfast/create-checkout`, `/api/payfast/itn`)
-- Admin/reliability endpoints (`/api/payfast/reconcile`, `/api/admin/audit-logs`)
-- Health endpoint (`/health`)
+Detailed procedures are available in `docs/`.
