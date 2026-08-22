@@ -46,6 +46,14 @@ For the selectable public amenity path, use a server-side, user-triggered lookup
 
 ## DNS, launch, and payment cutover checklist
 
+## Final publish handoff — 2026-08-22
+
+The release candidate completed `pnpm test` with **27 test files / 64 tests passing**, `pnpm check` with no TypeScript errors, and `pnpm build` successfully. Desktop and mobile visual reviews covered the public landing route, buyer-report preview, and buyer-intelligence workspace. The managed preview service was restarted and the current dashboard navigation module loaded without reproducing the earlier stale import message.
+
+To publish, create or select the release checkpoint in the project management interface, use the **Publish** control, then connect `property.amarktai.co.za` and configure the requested DNS record. Confirm HTTPS before configuring OAuth origins, PayFast ITN, or any production callback URL. Do not add deployment secrets to source control or use a preview URL for provider callbacks.
+
+The following capabilities are intentionally inactive at publish time unless their deployment conditions are met: automated GenX buyer-intelligence dispatch and credit debit (official session-message/search/citation/usage contract still required); licensed amenity-provider dispatch (approved provider-specific response mapping still required); PayFast checkout/ITN (merchant configuration and sandbox replay required); and scheduled source refresh (authenticated endpoint, rate policy, and observed scheduled run required). The zero-debit evidence-review queue, source-reviewed report records, controlled sharing, and public bounded amenity path remain available within their documented safeguards.
+
 | Stage | Required action | Acceptance check |
 |---|---|---|
 | Domain | Connect `property.amarktai.co.za` and publish the DNS record requested by the hosting panel. | HTTPS resolves on the custom domain and the preview URL is not used in production settings. |
