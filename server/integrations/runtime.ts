@@ -14,8 +14,11 @@ export function getGenxState(): IntegrationState {
 }
 
 export function getPayfastState(): IntegrationState {
-  const mode = process.env.PAYFAST_MODE === "sandbox" ? "sandbox" : "production";
-  return state(["PAYFAST_MERCHANT_ID", "PAYFAST_MERCHANT_KEY"], mode);
+  const modeValue = process.env.PAYFAST_MODE;
+  const base = state(["PAYFAST_MODE", "PAYFAST_MERCHANT_ID", "PAYFAST_MERCHANT_KEY"]);
+  const invalid = modeValue && !["sandbox", "production"].includes(modeValue) ? ["PAYFAST_MODE(sandbox or production)"] : [];
+  const configured = base.configured && invalid.length === 0;
+  return { ...base, configured, missing: [...base.missing, ...invalid], mode: configured ? modeValue as "sandbox" | "production" : "disabled" };
 }
 
 /** A provider name, endpoint and secret are required before the licensed data path may make any request. */
