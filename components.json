@@ -4,19 +4,16 @@
   "rsc": false,
   "tsx": true,
   "tailwind": {
-    "config": "postcss.config.js",
-    "css": "src/index.css",
-    "baseColor": "slate",
+    "css": "client/src/index.css",
+    "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
-  "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
-  },
-  "registries": {}
+  }
 }

@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1787397353602,
+      "tag": "0000_flat_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1787397593174,
+      "tag": "0001_charming_captain_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1787397637912,
+      "tag": "0002_silly_aqueduct",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1787405818811,
+      "tag": "0003_zippy_sally_floyd",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1787407502086,
+      "tag": "0004_new_ronan",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1787411758086,
+      "tag": "0005_spooky_fenris",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+import { BadgeCheck, Clock3, FileText, House, MapPinned, ShieldAlert } from "lucide-react";
+import React, { useEffect } from "react";
+import { Link, useRoute } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { readReportSnapshot } from "@/lib/reportSnapshot";
+import { createReportEvidenceMarkers } from "@/lib/reportMapMarkers";
+import { MapView } from "@/components/Map";
+
+export default function PublicShare() {
+  const [, params] = useRoute("/s/:token");
+  const token = params?.token ?? "";
+  const share = trpc.public.share.useQuery({ token }, { enabled: Boolean(token), retry: false });
+
+  useEffect(() => {
+    document.title = share.data?.property.title ? `${share.data.property.title} | Amarktai Property` : "Controlled Property Share | Amarktai Property";
+    let description = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!description) { description = document.createElement("meta"); description.name = "description"; document.head.appendChild(description); }
+    description.content = share.data?.property.title ? "A controlled Amarktai Property share with time-bound access and source-aware property context." : "Amarktai Property controlled share access.";
+  }, [share.data]);
+
+  if (share.isLoading) return <Status title="Opening the property share" copy="Checking the controlled access link…" />;
+  if (!share.data) return <Status title="This shared link is unavailable" copy="It may have expired, been revoked, or be incomplete. You can still review the buyer-report presentation." />;
+
+  const { property, report, share: access } = share.data;
+  const snapshot = readReportSnapshot(report?.snapshot);
+  const amenities = snapshot?.amenities ?? [];
+  const serviceStatus = snapshot?.serviceStatus;
+  const research = snapshot?.research ?? [];
+
+  return <div className="min-h-screen bg-[#f7f8f5]"><header className="border-b border-[#e7e1d8] bg-white"><div className="container flex h-18 items-center justify-between"><span className="flex items-center gap-2 text-sm font-semibold text-[#193552]"><span className="grid size-8 place-items-center rounded-lg bg-[#193552] text-[#e6bd73]"><House className="size-4" /></span>Amarktai Property</span><span className="rounded-full bg-[#edf2f1] px-3 py-1 text-xs font-bold text-[#337f88]">Controlled {access.permission} share</span></div></header><main className="container py-10"><div className="grid gap-7 lg:grid-cols-[1.2fr_.8fr]"><section><p className="eyebrow">Property share</p><h1 className="font-editorial mt-3 text-5xl text-[#193552]">{property.title}</h1><p className="mt-3 text-lg text-slate-600">{property.addressLine}{property.suburb ? `, ${property.suburb}` : ""}</p><ReportEvidenceMap property={property} amenities={amenities} /></section><aside className="soft-card h-fit p-6"><p className="text-sm font-bold text-[#193552]">Share information</p><div className="mt-5 space-y-4 text-sm text-slate-600"><p className="flex gap-3"><BadgeCheck className="size-5 shrink-0 text-[#b68238]" />Access is controlled by an agent-issued link.</p><p className="flex gap-3"><Clock3 className="size-5 shrink-0 text-[#b68238]" />{access.expiresAt ? `Expires ${new Date(access.expiresAt).toLocaleDateString()}` : "No expiry date was set."}</p><p className="flex gap-3"><ShieldAlert className="size-5 shrink-0 text-[#b68238]" />Information is indicative and must be read with source context.</p></div><Link href="/report/preview" className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#193552] px-4 py-2 text-sm font-semibold text-white hover:bg-[#264b6c]">View buyer report preview</Link></aside></div>{access.permission === "report" && <section className="mt-8 rounded-[1.4rem] border border-[#e7e1d8] bg-white p-6"><div className="flex items-center gap-3"><MapPinned className="size-5 text-[#b68238]" /><div><p className="font-bold text-[#193552]">Buyer intelligence report</p><p className="text-sm text-slate-500">{report?.sourceSummary ?? "A dated, source-labelled report has not yet been generated for this share."}</p>{serviceStatus?.asOf && <p className="mt-1 text-xs font-semibold text-[#337f88]">{serviceStatus.label ?? "Data status"} · as at {new Date(serviceStatus.asOf).toLocaleDateString()}</p>}</div></div>{amenities.length ? <div className="mt-5 grid gap-3 sm:grid-cols-3">{amenities.map(amenity => <Card key={`${amenity.type}-${amenity.detail}`} title={amenity.type} copy={amenity.detail} />)}</div> : <div className="mt-5 rounded-xl bg-[#f7f8f5] p-4"><p className="font-bold text-[#193552]">No verified local layers are attached yet.</p><p className="mt-2 text-sm leading-6 text-slate-600">Amenity, crime, and service details are not inferred. Any future information must identify its source, geographic coverage, and date.</p></div>}{research.length > 0 && <div className="mt-6 space-y-4"><p className="text-sm font-bold text-[#193552]">Evidence-reviewed research</p>{research.map((entry, index) => <article key={`${entry.type}-${entry.generatedAt}-${index}`} className="rounded-xl border border-[#dbe5de] bg-[#f6faf7] p-4"><div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><p className="font-bold text-[#193552]">{entry.type} · {entry.locationLabel}</p><p className="text-xs font-semibold text-[#337f88]">Reviewed {new Date(entry.generatedAt).toLocaleDateString()}</p></div><p className="mt-3 text-sm leading-6 text-slate-700">{entry.summary}</p><p className="mt-3 text-xs leading-5 text-slate-600"><strong>Caveat:</strong> {entry.caveats}</p><div className="mt-3 space-y-1 text-xs text-slate-600">{entry.sources.map((source, sourceIndex) => <p key={`${source.url}-${sourceIndex}`}><a href={source.url} target="_blank" rel="noreferrer" className="font-semibold text-[#315c5c] underline underline-offset-2">{source.label}</a> · retrieved {new Date(source.retrievedAt).toLocaleDateString()} · {source.coverage}{source.period ? ` · period ${source.period}` : ""}</p>)}</div></article>)}</div>}<p className="mt-5 text-xs leading-5 text-slate-500">Crime statistics, when available, describe a labelled source and period only; they are never presented as a safety verdict.</p></section>}</main></div>;
+}
+
+function ReportEvidenceMap({ property, amenities }: { property: { title: string; latitude?: string | number | null; longitude?: string | number | null }; amenities: { type: string; detail: string; latitude?: number; longitude?: number }[] }) {
+  const latitude = Number(property.latitude); const longitude = Number(property.longitude);
+  const propertyPosition = Number.isFinite(latitude) && Number.isFinite(longitude) ? { lat: latitude, lng: longitude } : { lat: -33.9249, lng: 18.4241 };
+  return <div className="mt-7 overflow-hidden rounded-[1.4rem] border border-[#d9e2db]"><MapView className="h-80" initialCenter={propertyPosition} initialZoom={14} onMapReady={map => createReportEvidenceMarkers({ map, property: { title: property.title, position: propertyPosition }, amenities, createMarker: options => new window.google.maps.marker.AdvancedMarkerElement(options) })} /><div className="border-t border-[#e7e1d8] bg-white px-4 py-2 text-xs text-slate-500">Property and cached amenity evidence are shown with their report source context.</div></div>;
+}
+
+function Status({ title, copy }: { title: string; copy: string }) { return <div className="grid min-h-screen place-items-center bg-[#f7f8f5] p-5 text-center"><div className="soft-card max-w-md p-8"><FileText className="mx-auto size-7 text-[#b68238]" /><h1 className="font-editorial mt-4 text-3xl text-[#193552]">{title}</h1><p className="mt-3 leading-7 text-slate-600">{copy}</p><Link href="/report/preview" className="mt-6 inline-flex rounded-full bg-[#193552] px-5 py-2 text-sm font-semibold text-white hover:bg-[#264b6c]">View buyer report preview</Link></div></div>; }
+function Card({ title, copy }: { title: string; copy: string }) { return <div className="rounded-xl bg-[#f7f8f5] p-4"><p className="font-bold text-[#193552]">{title}</p><p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p></div>; }
