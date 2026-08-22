@@ -90,3 +90,4 @@
 - [x] Verify the historical dashboard navigation import error is resolved or non-reproducible in the current dev server.
 - [x] Record the final publish handoff with validation status, remaining provider-gated capabilities, and property.amarktai.co.za publish steps.
 - [ ] Complete and record manual keyboard-only navigation and dialog focus-trap acceptance checks before the final release-readiness claim.
+- [ ] Commit, push, and merge the remaining final release-handoff changes so GitHub matches the current validated project state.
