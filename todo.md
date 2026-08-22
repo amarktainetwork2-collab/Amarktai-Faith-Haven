@@ -85,4 +85,8 @@
 - [ ] Add active render coverage for full reviewed evidence content across each completed workspace result path.
 - [ ] Remove the duplicate abbreviated completed-result display from the legacy review composer so the source-labelled evidence list is the single canonical completed-result path.
 - [ ] Complete final deployment-readiness validation, including build, responsive verification, and a documented publish handoff.
-- [ ] Commit, push, and merge the validated Amarktai Property source into the connected GitHub repository’s default branch.
+- [x] Commit, push, and merge the validated Amarktai Property source into the connected GitHub repository’s default branch.
+- [x] Run and record final responsive verification for the key public and workspace routes touched in the delivery increment.
+- [x] Verify the historical dashboard navigation import error is resolved or non-reproducible in the current dev server.
+- [x] Record the final publish handoff with validation status, remaining provider-gated capabilities, and property.amarktai.co.za publish steps.
+- [ ] Complete and record manual keyboard-only navigation and dialog focus-trap acceptance checks before the final release-readiness claim.
