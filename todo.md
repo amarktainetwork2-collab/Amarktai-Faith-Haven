@@ -1,0 +1,88 @@
+# Project TODO
+
+- [x] Define the Amarktai Property information architecture, role model, tenant boundaries, and integration capability flags.
+- [x] Implement the branded, responsive public marketing website with product, pricing, trust, legal, and sign-in entry pages.
+- [x] Implement controlled public property-listing pages and buyer-report share pages with expiry and access controls.
+- [x] Establish the elegant Amarktai visual system, responsive navigation, accessibility states, and motion guidelines.
+- [x] Extend the database schema for organisations, memberships, invitations, audit events, properties, media, leads, tasks, viewings, and controlled shares.
+- [x] Build the secure multi-tenant agent dashboard with role-aware navigation and organisation switching.
+- [x] Build property creation, editing, structured details, media metadata, listing status, search, and controlled public sharing workflows.
+- [x] Build leads, tasks, notes, viewing scheduling, and sales-activity workflows for agents.
+- [x] Build buyer-intelligence reports with an interactive map, locally cached amenity layers, source-labelled crime information, and dated service-data placeholders.
+- [x] Build a capability-verified server-side GenX media-job adapter with status tracking, retries, cost controls, credit controls, and downloadable media records.
+- [x] Extend the database schema and interface for buildings, units, resident scope, maintenance tickets, notices, documents, tasks, and a non-accounting levy ledger.
+- [x] Build the property-management workspace for buildings, complexes, residents, maintenance, notices, documents, and levy records.
+- [x] Implement secure server-side upload metadata handling, audit logs, source refresh records, and operational administration views.
+- [x] Implement PayFast order, checkout-handoff, verified ITN entitlement, and immutable payment-ledger workflows behind safe configuration gates.
+- [x] Implement portal-ready listing exports and authorised publication-adapter records without scraping or unauthorised posting.
+- [x] Add backend tests for tenancy, role authorization, controlled sharing, report source labels, entitlement logic, media-job state transitions, and building-management operations.
+- [ ] Add responsive visual regression checks, accessibility verification, error states, loading states, and empty states across public and dashboard workflows.
+- [x] Create deployment documentation, domain configuration guidance for property.amarktai.co.za, operations runbook, backup/restore guidance, and monitoring checklist.
+- [x] Keep GenX and PayFast credentials deployment-only, with validated environment-variable contracts and disabled-until-configured integration states.
+- [x] Create dedicated Privacy, Terms, and Trust & Safety pages and connect all public legal links.
+- [x] Build token-based public property and report routes that load controlled shared data, plus agent share management with expiry and revocation controls.
+- [x] Add reduced-motion safeguards and keyboard-visible accessibility states to the public navigation and workspace interaction patterns.
+- [x] Add role-aware dashboard navigation and organisation selection backed by active membership data.
+- [ ] Add explicit focus-visible styles to custom public navigation, footer links, listing actions, and workspace controls, then verify keyboard-only navigation flows.
+- [x] Define and apply a consistent interaction-motion system that respects reduced-motion preferences across custom public and workspace controls.
+- [ ] Verify keyboard-only navigation through public navigation, footer links, listing/share actions, dialogs, and workspace controls, and resolve any focus-order or focus-trap issues.
+- [x] Filter dashboard navigation and actions by the active membership role.
+- [x] Propagate the selected organisation context through every dashboard mutation and enforce it server-side.
+- [x] Add cross-tenant, active-organisation, and role-based navigation/action tests.
+- [x] Filter Workspace action buttons, row controls, and dialogs by the active membership role.
+- [x] Add server-side role gates for management mutations and align them with dashboard action visibility.
+- [x] Add an authorised property media library with editable metadata, including alt text.
+- [x] Extend the property editor with remaining structured listing fields, including feature editing.
+- [x] Define explicit authorised publication-adapter records and surface their export-only status in the workspace.
+- [x] Align unit-assignment UI and server validation around resident-only scoped membership.
+- [x] Add a resident roster that shows accepted resident members and their current unit assignments.
+- [x] Add a clearly building-scoped task workflow or document the generic task boundary explicitly.
+- [x] Define a complete contact-free public sitemap with dedicated product, buyer, agent, management, intelligence, security, pricing, and legal pages.
+- [x] Build reusable public navigation and footer components with mobile accessibility, active-route context, and no contact-page route or contact-form flow.
+- [x] Implement dedicated multi-page public experiences for buyers, estate agencies, complex managers, property intelligence, trust and security, and transparent pricing.
+- [x] Update public metadata and route-level call-to-actions so every public page has a clear workspace or buyer-report next step.
+- [x] Review the official GenX API documentation and configure a provider contract that is inactive until deployment secrets are supplied.
+- [x] Implement GenX creation, status, output, retry, cost-control, and failure-state handling only against verified documented API fields.
+- [x] Add verified route-level metadata and clear next-step calls-to-action to Privacy, Terms, and Trust & Safety pages.
+- [x] Add route-level metadata and a clear next step to Home, Buyer Report preview, and controlled public-share routes.
+- [x] Align Buyer Report preview and controlled-share primary CTAs directly to workspace entry or buyer-report routes.
+- [x] Retrieve completed GenX result files into managed storage and expose a durable tenant-scoped output download record.
+- [x] Add deterministic GenX job-transition, retry-cap, credit-gate, and completed-output persistence tests.
+- [x] Add router-level GenX sync lifecycle tests for queued, running, completed, failed, and cancelled provider outcomes.
+- [x] Add router-level tests for zero-credit rejection and managed output URL/storage-key persistence.
+- [ ] Verify whether the official GenX API supports internet-search or research calls and record the exact documented request, result, pricing, and attribution contract.
+- [x] Add a deployment-gated, credit-aware GenX research request workflow for buyer intelligence without exposing API keys or allowing browser-side provider calls.
+- [ ] Persist source provenance, retrieval date, geographic scope, and model/provider context for every GenX-assisted intelligence result.
+- [ ] Surface GenX research costs and results only after a server-side credit check, explicit workspace action, and source-labelling validation.
+- [x] Review DashNex documentation for the exact GenX session tool-use, web-search provenance, and customer-credit contract before enabling research calls.
+- [x] Cross-check the official GenX reference for any documented user-level credit debit, quota, or sub-key API before assuming customer credits can fund research calls.
+- [ ] Add a tenant-scoped internal research-credit ledger with immutable grants, debits, idempotency keys, balance calculation, and audit records.
+- [x] Add PayFast-backed research-credit top-up products where credits are granted exclusively after a verified ITN, never from a browser return.
+- [ ] Add a credit-aware GenX research job model with request limits, provider usage capture, source provenance, result status, and retry-safe debit/refund policy.
+- [x] Add a role-gated buyer-intelligence evidence-review console that makes the intended credit cost and zero-debit queue explicit, prevents undocumented automatic dispatch, and shows only source-labelled reviewed results.
+- [ ] Add deterministic tests for research-credit balances, ITN credit grants, debit idempotency, provider credit rejection, and source-provenance invariants.
+- [x] Add a role-gated verified-result review composer for recorded research sources, scope, dates, caveats, and immutable completion state.
+- [x] Extend verified-result review to support multiple source entries, reviewer-controlled retrieval and result dates, and visible read-only completed results.
+- [x] Add a user-selectable buyer-intelligence source path with bounded public amenity lookup and retained source, coverage, and retrieval provenance.
+- [x] Add a licensed-provider buyer-intelligence option that is visible in the workspace but remains deployment-gated until provider credentials, terms, and field mapping are configured.
+- [x] Add tests and deployment documentation for buyer-intelligence source selection, public-source bounds, and licensed-provider activation safeguards.
+- [x] Add a server-enforced licensed-provider approval and terms-acceptance state before the licensed amenity path may activate.
+- [x] Add deterministic tests proving licensed amenity dispatch remains blocked until credentials, field mapping, and provider approval are all complete.
+- [x] Add router-level tests for public versus licensed amenity source selection and cache/persistence behaviour.
+- [x] Add a licensed-provider service stub with tests proving no outbound request can occur before a separately approved response-field mapping is activated.
+- [x] Add structured crime-report provenance fields for source label, reporting period, geographic scope, retrieval date, and safe presentation rules.
+- [x] Render evidence-reviewed crime entries in controlled public report views beside amenities and dated service placeholders.
+- [x] Add deterministic buyer-report tests for amenity cache provenance, crime provenance rendering, and service-date placeholders.
+- [x] Replace the controlled buyer-report placeholder map with an interactive map that renders cached amenity evidence and property context.
+- [x] Add deterministic coverage proving the controlled report map receives its cached amenity and source evidence layers.
+- [x] Add a mocked controlled-report map component test that verifies property and cached amenity markers are created from a shared report snapshot.
+- [x] Add a controlled-report rendering regression test retaining source-labelled crime and dated service evidence when map layers are present.
+- [x] Add component-level controlled-share map wiring coverage with mocked report data, MapView, and marker creation.
+- [x] Add rendered controlled-share regression coverage for source-labelled crime and dated service evidence alongside active map layers.
+- [x] Add router/UI regression coverage proving automated provider dispatch remains blocked while the separately available zero-debit evidence-review brief queue is clearly labelled.
+- [ ] Add completed-research rendering coverage that asserts full source-labelled evidence content remains visible across workspace result paths.
+- [x] Render reviewed research summaries and caveats beside source labels, scope, dates, and periods in the completed workspace evidence view.
+- [ ] Add active render coverage for full reviewed evidence content across each completed workspace result path.
+- [ ] Remove the duplicate abbreviated completed-result display from the legacy review composer so the source-labelled evidence list is the single canonical completed-result path.
+- [ ] Complete final deployment-readiness validation, including build, responsive verification, and a documented publish handoff.
+- [ ] Commit, push, and merge the validated Amarktai Property source into the connected GitHub repository’s default branch.
