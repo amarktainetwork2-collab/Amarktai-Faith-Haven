@@ -8,6 +8,8 @@ describe("accessibility shell safeguards", () => {
     const css = readClientFile("index.css");
     expect(css).toContain(":focus-visible");
     expect(css).toContain("outline: 3px solid");
+    expect(css).toContain("textarea");
+    expect(css).toContain("outline-offset: 3px");
   });
 
   it("keeps skip links and named main regions in both public and dashboard shells", () => {
@@ -19,5 +21,12 @@ describe("accessibility shell safeguards", () => {
     expect(publicShell).toContain('href="#public-main"');
     expect(home).toContain('id="public-main"');
     expect(dashboardShell).toContain('id="workspace-main"');
+  });
+
+  it("retains dialog-capable workspace controls for keyboard focus management", () => {
+    const workspace = readClientFile("pages/Workspace.tsx");
+    expect(workspace).toContain("<Dialog");
+    expect(workspace).toContain("<DialogContent");
+    expect(workspace).toContain('onOpenChange={setOpen}');
   });
 });

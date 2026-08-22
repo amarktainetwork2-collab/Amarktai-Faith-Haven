@@ -12,11 +12,30 @@ describe("deployment-only integration configuration", () => {
   });
 
   it("keeps PayFast disabled without merchant credentials", () => {
+    const mode = process.env.PAYFAST_MODE;
     const merchantId = process.env.PAYFAST_MERCHANT_ID;
     const merchantKey = process.env.PAYFAST_MERCHANT_KEY;
-    delete process.env.PAYFAST_MERCHANT_ID; delete process.env.PAYFAST_MERCHANT_KEY;
+    delete process.env.PAYFAST_MODE; delete process.env.PAYFAST_MERCHANT_ID; delete process.env.PAYFAST_MERCHANT_KEY;
     expect(getPayfastState()).toMatchObject({ configured: false, mode: "disabled" });
-    process.env.PAYFAST_MERCHANT_ID = merchantId; process.env.PAYFAST_MERCHANT_KEY = merchantKey;
+    if (mode === undefined) delete process.env.PAYFAST_MODE; else process.env.PAYFAST_MODE = mode;
+    if (merchantId === undefined) delete process.env.PAYFAST_MERCHANT_ID; else process.env.PAYFAST_MERCHANT_ID = merchantId;
+    if (merchantKey === undefined) delete process.env.PAYFAST_MERCHANT_KEY; else process.env.PAYFAST_MERCHANT_KEY = merchantKey;
+  });
+
+  it("requires an explicit valid PayFast mode before checkout capability can activate", () => {
+    const keys = ["PAYFAST_MODE", "PAYFAST_MERCHANT_ID", "PAYFAST_MERCHANT_KEY"] as const;
+    const original = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    const restore = () => keys.forEach(key => { if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key]; });
+    try {
+      process.env.PAYFAST_MERCHANT_ID = "merchant-id"; process.env.PAYFAST_MERCHANT_KEY = "merchant-key"; delete process.env.PAYFAST_MODE;
+      expect(getPayfastState()).toMatchObject({ configured: false, mode: "disabled", missing: expect.arrayContaining(["PAYFAST_MODE"]) });
+      process.env.PAYFAST_MODE = "test";
+      expect(getPayfastState()).toMatchObject({ configured: false, mode: "disabled", missing: expect.arrayContaining(["PAYFAST_MODE(sandbox or production)"]) });
+      process.env.PAYFAST_MODE = "sandbox";
+      expect(getPayfastState()).toMatchObject({ configured: true, mode: "sandbox", missing: [] });
+      process.env.PAYFAST_MODE = "production";
+      expect(getPayfastState()).toMatchObject({ configured: true, mode: "production", missing: [] });
+    } finally { restore(); }
   });
 
   it("keeps licensed amenity data disabled until credentials, mapping, terms, and approval are complete", () => {
@@ -39,13 +58,14 @@ describe("deployment-only integration configuration", () => {
 
   it("reports integrations ready only after required deployment variables are supplied", () => {
     const originalGenxKey = process.env.GENX_API_KEY; const originalGenxUrl = process.env.GENX_BASE_URL;
-    const originalPayfastId = process.env.PAYFAST_MERCHANT_ID; const originalPayfastKey = process.env.PAYFAST_MERCHANT_KEY;
+    const originalPayfastMode = process.env.PAYFAST_MODE; const originalPayfastId = process.env.PAYFAST_MERCHANT_ID; const originalPayfastKey = process.env.PAYFAST_MERCHANT_KEY;
     process.env.GENX_API_KEY = "test-key"; process.env.GENX_BASE_URL = "https://genx.example.test";
-    process.env.PAYFAST_MERCHANT_ID = "merchant-id"; process.env.PAYFAST_MERCHANT_KEY = "merchant-key";
+    process.env.PAYFAST_MODE = "production"; process.env.PAYFAST_MERCHANT_ID = "merchant-id"; process.env.PAYFAST_MERCHANT_KEY = "merchant-key";
     expect(getGenxState()).toMatchObject({ configured: true, missing: [], mode: "production" });
     expect(getPayfastState()).toMatchObject({ configured: true, missing: [], mode: "production" });
     if (originalGenxKey === undefined) delete process.env.GENX_API_KEY; else process.env.GENX_API_KEY = originalGenxKey;
     if (originalGenxUrl === undefined) delete process.env.GENX_BASE_URL; else process.env.GENX_BASE_URL = originalGenxUrl;
+    if (originalPayfastMode === undefined) delete process.env.PAYFAST_MODE; else process.env.PAYFAST_MODE = originalPayfastMode;
     if (originalPayfastId === undefined) delete process.env.PAYFAST_MERCHANT_ID; else process.env.PAYFAST_MERCHANT_ID = originalPayfastId;
     if (originalPayfastKey === undefined) delete process.env.PAYFAST_MERCHANT_KEY; else process.env.PAYFAST_MERCHANT_KEY = originalPayfastKey;
   });

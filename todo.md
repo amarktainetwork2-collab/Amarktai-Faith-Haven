@@ -80,10 +80,10 @@
 - [x] Add component-level controlled-share map wiring coverage with mocked report data, MapView, and marker creation.
 - [x] Add rendered controlled-share regression coverage for source-labelled crime and dated service evidence alongside active map layers.
 - [x] Add router/UI regression coverage proving automated provider dispatch remains blocked while the separately available zero-debit evidence-review brief queue is clearly labelled.
-- [ ] Add completed-research rendering coverage that asserts full source-labelled evidence content remains visible across workspace result paths.
+- [x] Add completed-research rendering coverage that asserts full source-labelled evidence content remains visible across workspace result paths.
 - [x] Render reviewed research summaries and caveats beside source labels, scope, dates, and periods in the completed workspace evidence view.
-- [ ] Add active render coverage for full reviewed evidence content across each completed workspace result path.
-- [ ] Remove the duplicate abbreviated completed-result display from the legacy review composer so the source-labelled evidence list is the single canonical completed-result path.
+- [x] Add active render coverage for full reviewed evidence content across each completed workspace result path.
+- [x] Remove the duplicate abbreviated completed-result display from the legacy review composer so the source-labelled evidence list is the single canonical completed-result path.
 - [ ] Complete final deployment-readiness validation, including build, responsive verification, and a documented publish handoff.
 - [x] Commit, push, and merge the validated Amarktai Property source into the connected GitHub repository’s default branch.
 - [x] Run and record final responsive verification for the key public and workspace routes touched in the delivery increment.
@@ -91,3 +91,11 @@
 - [x] Record the final publish handoff with validation status, remaining provider-gated capabilities, and property.amarktai.co.za publish steps.
 - [ ] Complete and record manual keyboard-only navigation and dialog focus-trap acceptance checks before the final release-readiness claim.
 - [ ] Commit, push, and merge the remaining final release-handoff changes so GitHub matches the current validated project state.
+- [ ] Audit and document the remaining release prerequisites, GitHub merge status, and managed-hosting versus Webdock VPS deployment path.
+- [ ] Add executable keyboard and dialog focus-management regression coverage for public and workspace controls.
+- [ ] Expand public and workspace loading, error, and empty-state regression coverage.
+- [ ] Consolidate all completed research-result rendering into one canonical source-labelled evidence component and remove the duplicate abbreviated view.
+- [x] Refactor ResearchResultComposerV2 to remove its completed-results query and render branch, leaving source-labelled completed evidence to ResearchEvidenceList alone.
+- [x] Add canonical completed-evidence render assertions for reviewed dates and source retrieval dates.
+- [x] Add a PayFast production activation checklist and tests that preserve disabled-until-secret-configured and verified-ITN-only behavior.
+- [ ] Add explicit automated-GenX-research contract validation safeguards that remain disabled without the official documented session-message, citation, usage, and debit contract.
